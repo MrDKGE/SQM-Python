@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  sonarr-script:
+    container_name: SQM
+    build: .
+    environment:
+      - HOST=xxxx:xxxx  # Sonarr Host and Port
+      - API_KEY=xxxx  # Sonarr API Key
+      - INTERVAL=3600  # Interval in seconds to check for blacklisted downloads
+      - REDOWNLOAD=False  # Set to True to redownload all blacklisted downloads
+    restart: always
