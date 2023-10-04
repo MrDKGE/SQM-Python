@@ -8,6 +8,7 @@ services:
       - HOST=${HOST} # Sonarr Host and Port (optional, default: 127.0.0.1)
       - PORT=${PORT} # Sonarr Port (optional, default: 8989)
       - API_KEY=${API_KEY} # Sonarr API Key
+      - PROTOCOL=http # Set to https if Sonarr is using https
       - INTERVAL=3600 # Interval in seconds to check for blacklisted downloads
       - REDOWNLOAD=False # Set to True to redownload all blacklisted downloads
     restart: always
