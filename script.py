@@ -7,7 +7,8 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 # Fetch environment variables
-HOST = os.getenv('HOST')  # Sonarr host IP and port
+HOST = os.getenv('HOST', "127.0.0.1")  # Sonarr host IP and port
+PORT = os.getenv('PORT', "8989")  # Default is 8989
 API_KEY = os.getenv('API_KEY')  # Sonarr API key
 INTERVAL = int(os.getenv('INTERVAL', 3600))  # Default is 3600 seconds (1 hour)
 REDOWNLOAD = os.getenv('REDOWNLOAD', False)  # Default is False
@@ -15,14 +16,15 @@ REDOWNLOAD = os.getenv('REDOWNLOAD', False)  # Default is False
 # Log environment variables for debugging
 logging.info(f"Starting script with the following environment variables:")
 logging.info(f"HOST: {HOST}")
+logging.info(f"PORT: {PORT}")
 logging.info(f"API_KEY: {'x' * (len(API_KEY) - 6) + API_KEY[-6:]}")
 logging.info(f"INTERVAL: {INTERVAL}")
 logging.info(f"REDOWNLOAD: {REDOWNLOAD}")
 logging.info('-' * 50)
 
 # Check for missing environment variables
-if not HOST or not API_KEY:
-    logging.error("Missing required environment variables. Please set HOST and API_KEY.")
+if not API_KEY:
+    logging.error("Missing required environment variables. Please set API_KEY.")
     exit(1)
 
 def api_call(base_url, endpoint, headers, method='GET', params=None, retries=3):
@@ -45,7 +47,7 @@ def api_call(base_url, endpoint, headers, method='GET', params=None, retries=3):
     return None
 
 while True:
-    BASE_URL = f'http://{HOST}/api/v3/'
+    BASE_URL = f'http://{HOST}:{PORT}/api/v3/'
     HEADERS = {'Content-Type': 'application/json', 'X-Api-Key': API_KEY}
 
     # Initial parameters

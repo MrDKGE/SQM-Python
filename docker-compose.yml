@@ -5,8 +5,9 @@ services:
     container_name: SQM
     image: dkge/sqm:latest
     environment:
-      - HOST=xxxx:xxxx  # Sonarr Host and Port
-      - API_KEY=xxxx  # Sonarr API Key
-      - INTERVAL=3600  # Interval in seconds to check for blacklisted downloads
-      - REDOWNLOAD=False  # Set to True to redownload all blacklisted downloads
+      - HOST=${HOST} # Sonarr Host and Port (optional, default: 127.0.0.1)
+      - PORT=${PORT} # Sonarr Port (optional, default: 8989)
+      - API_KEY=${API_KEY} # Sonarr API Key
+      - INTERVAL=3600 # Interval in seconds to check for blacklisted downloads
+      - REDOWNLOAD=False # Set to True to redownload all blacklisted downloads
     restart: always
