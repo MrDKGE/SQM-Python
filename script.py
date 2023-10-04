@@ -3,85 +3,95 @@ import time
 import requests
 import logging
 
+# Constants
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = "8989"
+DEFAULT_INTERVAL = 3600
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+
 # Initialize logging
-logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+logging.basicConfig(level=LOG_LEVEL, format='%(levelname)s - %(message)s')
 
-# Fetch environment variables
-HOST = os.getenv('HOST', "127.0.0.1")  # Sonarr host IP and port
-PORT = os.getenv('PORT', "8989")  # Default is 8989
-API_KEY = os.getenv('API_KEY')  # Sonarr API key
-INTERVAL = int(os.getenv('INTERVAL', 3600))  # Default is 3600 seconds (1 hour)
-REDOWNLOAD = os.getenv('REDOWNLOAD', False)  # Default is False
 
-# Log environment variables for debugging
-logging.info(f"Starting script with the following environment variables:")
-logging.info(f"HOST: {HOST}")
-logging.info(f"PORT: {PORT}")
-logging.info(f"API_KEY: {'x' * (len(API_KEY) - 6) + API_KEY[-6:]}")
-logging.info(f"INTERVAL: {INTERVAL}")
-logging.info(f"REDOWNLOAD: {REDOWNLOAD}")
-logging.info('-' * 50)
-
-# Check for missing environment variables
-if not API_KEY:
-    logging.error("Missing required environment variables. Please set API_KEY.")
-    exit(1)
-
-def api_call(base_url, endpoint, headers, method='GET', params=None, retries=3):
-    url = f"{base_url}{endpoint}"
-    for _ in range(retries):
-        try:
-            r = getattr(requests, method.lower())(url, headers=headers, params=params)
-            r.raise_for_status()
-            if r.text:
-                return r.json()
-            return None
-        except requests.HTTPError as e:
-            if r.text:
-                error_message = r.json().get('message', 'Unknown error')
-            else:
-                error_message = 'No additional information'
-            logging.error(f"API call failed with status code {r.status_code}. Error: {error_message}")
-
-    logging.error(f"API call failed after {retries} retries")
-    return None
-
-while True:
-    BASE_URL = f'http://{HOST}:{PORT}/api/v3/'
-    HEADERS = {'Content-Type': 'application/json', 'X-Api-Key': API_KEY}
-
-    # Initial parameters
-    queue_params = {
-        'page': 1,
-        'pageSize': 250,
-        'includeUnknownSeriesItems': True
+# Fetch and log environment variables
+def fetch_env_vars():
+    required_vars = {
+        "API_KEY": os.getenv('API_KEY')
+    }
+    optional_vars = {
+        "HOST": os.getenv('HOST', DEFAULT_HOST),
+        "PORT": os.getenv('PORT', DEFAULT_PORT),
+        "PROTOCOL": os.getenv('PROTOCOL', 'http'),
+        "INTERVAL": int(os.getenv('INTERVAL', DEFAULT_INTERVAL)),
+        "REDOWNLOAD": os.getenv('REDOWNLOAD', False)
     }
 
-    queue_info = api_call(BASE_URL, 'queue', HEADERS, params=queue_params)
-    if queue_info:
+    if not all(required_vars.values()):
+        logging.error("Missing required environment variables. Exiting.")
+        exit(1)
+
+    logging.info(f"Starting script with the following environment variables:")
+
+    masked_api_key = 'x' * (len(required_vars['API_KEY']) - 6) + required_vars['API_KEY'][-6:]
+    logging.info(f"API_KEY: {masked_api_key}")
+
+    for var, value in optional_vars.items():
+        logging.info(f"{var}: {value}")
+
+    return required_vars, optional_vars
+
+
+def api_call(base_url, endpoint, headers, method='GET', params=None):
+    url = f"{base_url}{endpoint}"
+    try:
+        r = getattr(requests, method.lower())(url, headers=headers, params=params)
+        r.raise_for_status()
+        if method == 'DELETE':
+            return True if r.status_code == 200 else None
+        else:
+            return r.json() if r.text else None
+    except requests.HTTPError:
+        error_message = r.json().get('message', 'Unknown error') if r.text else 'No additional information'
+        logging.error(f"API call failed with status code {r.status_code}. Error: {error_message}")
+        if r.status_code == 404:
+            return None
+
+
+def main():
+    required_vars, optional_vars = fetch_env_vars()
+    base_url = f'{optional_vars["PROTOCOL"]}://{optional_vars["HOST"]}:{optional_vars["PORT"]}/api/v3/'
+    headers = {'Content-Type': 'application/json', 'X-Api-Key': required_vars['API_KEY']}
+
+    while True:
+        queue_params = {'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True}
+        queue_info = api_call(base_url, 'queue', headers, params=queue_params)
+
+        if not queue_info:
+            continue
+
         total_items = queue_info['totalRecords']
         logging.info(f'Total Items in Queue: {total_items}')
 
-        # Update pageSize to fetch all records
         queue_params['pageSize'] = total_items
-        records = api_call(BASE_URL, 'queue', HEADERS, params=queue_params)
-        if records:
-            records = records['records']
-            stalled_ids = [
-                record['id'] for record in records
-                if 'errorMessage' in record and
-                (record['errorMessage'] == 'The download is stalled with no connections' or
-                 record['errorMessage'] == 'qBittorrent is downloading metadata')
-            ]
+        records = api_call(base_url, 'queue', headers, params=queue_params)['records'] if queue_info else []
 
-            logging.info(f"IDs of Stalled Records: {stalled_ids}")
+        stalled_ids = [
+            record['id'] for record in records
+            if 'errorMessage' in record and record['errorMessage'] in ('The download is stalled with no connections', 'qBittorrent is downloading metadata')
+        ]
 
-            # Blacklist the stalled records
-            for stalled_id in stalled_ids:
-                params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': REDOWNLOAD}
-                response = api_call(BASE_URL, f"queue/{stalled_id}", HEADERS, method='DELETE', params=params)
-                if response:
-                    logging.info(f"Successfully blacklisted record with ID {stalled_id}")
+        logging.info(f"IDs of Stalled Records: {stalled_ids}")
 
-    logging.info(f"Sleeping for {INTERVAL} seconds.")
-    time.sleep(INTERVAL)
+        for stalled_id in stalled_ids:
+            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['REDOWNLOAD']}
+            if api_call(base_url, f"queue/{stalled_id}", headers, method='DELETE', params=params):
+                logging.info(f"Successfully blacklisted record with ID {stalled_id}")
+            else:
+                logging.error(f"Failed to blacklist record with ID {stalled_id}")
+
+        logging.info(f"Sleeping for {optional_vars['INTERVAL']} seconds.")
+        time.sleep(optional_vars['INTERVAL'])
+
+
+if __name__ == "__main__":
+    main()
