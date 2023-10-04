@@ -15,15 +15,15 @@ So the name becomes Servarr Queue Manager.
 
 ## Environment Variables
 
-| Variable   | Description                                    | Default   | Required |
-|:-----------|:-----------------------------------------------|:----------|:---------|
-| HOST       | The IP address of the Sonarr host              | 127.0.0.1 | No       |
-| PORT       | The port of the Sonarr host                    | 8989      | No       |
-| PROTOCOL   | The protocol of the Sonarr host                | http      | No       |
-| API_KEY    | The API key of the Sonarr host                 |           | Yes      |
-| INTERVAL   | The interval in seconds between each check     | 3600      | No       |
-| REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
-| LOG_LEVEL  | The log level                                  | INFO      | No       |
+| Variable        | Description                                    | Default   | Required |
+|:----------------|:-----------------------------------------------|:----------|:---------|
+| HOST            | The IP address of the Sonarr host              | 127.0.0.1 | No       |
+| PORT            | The port of the Sonarr host                    | 8989      | No       |
+| PROTOCOL        | The protocol of the Sonarr host                | http      | No       |
+| API_KEY         | The API key of the Sonarr host                 |           | Yes      |
+| INTERVAL        | The interval in seconds between each check     | 3600      | No       |
+| SKIP_REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
+| LOG_LEVEL       | The log level                                  | INFO      | No       |
 
 ## What does it do?
 

@@ -23,7 +23,7 @@ def fetch_env_vars():
         "PORT": os.getenv('PORT', DEFAULT_PORT),
         "PROTOCOL": os.getenv('PROTOCOL', 'http'),
         "INTERVAL": int(os.getenv('INTERVAL', DEFAULT_INTERVAL)),
-        "REDOWNLOAD": os.getenv('REDOWNLOAD', False)
+        "SKIP_REDOWNLOAD": os.getenv('SKIP_REDOWNLOAD', 'False').lower() == 'true'
     }
 
     if not all(required_vars.values()):
@@ -89,7 +89,7 @@ def main():
         logging.info(f"IDs of Stalled Records: {stalled_ids}")
 
         for stalled_id in stalled_ids:
-            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['REDOWNLOAD']}
+            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['SKIP_REDOWNLOAD']}
             if api_call(base_url, f"queue/{stalled_id}", headers, method='DELETE', params=params):
                 logging.info(f"Successfully blacklisted record with ID {stalled_id}")
             else:
