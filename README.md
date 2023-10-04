@@ -5,6 +5,18 @@ This is a simple script for managing the queue in Sonarr. You can use it to blac
 Why the short name SQM you ask? Well, maybe we can add Radarr support in the future.  
 So the name becomes Servarr Queue Manager.
 
+## Environment Variables
+
+| Variable   | Description                                    | Default   | Required |
+|:-----------|:-----------------------------------------------|:----------|:---------|
+| HOST       | The IP address of the Sonarr host              | 127.0.0.1 | No       |
+| PORT       | The port of the Sonarr host                    | 8989      | No       |
+| PROTOCOL   | The protocol of the Sonarr host                | http      | No       |
+| API_KEY    | The API key of the Sonarr host                 |           | Yes      |
+| INTERVAL   | The interval in seconds between each check     | 3600      | No       |
+| REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
+| LOG_LEVEL  | The log level                                  | INFO      | No       |
+
 ## Getting Started
 
 Follow these instructions to get the project up and running on your local machine for testing and development purposes.
