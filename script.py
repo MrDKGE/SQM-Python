@@ -77,7 +77,13 @@ def main():
 
         stalled_ids = [
             record['id'] for record in records
-            if 'errorMessage' in record and record['errorMessage'] in ('The download is stalled with no connections', 'qBittorrent is downloading metadata')
+            if 'errorMessage' in record and (
+                    'The download is stalled with no connections' in record['errorMessage'] or
+                    'is downloading metadata' in record['errorMessage']
+            ) or any(
+                'Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', []))
+                for message in record.get('statusMessages', [])
+            )
         ]
 
         logging.info(f"IDs of Stalled Records: {stalled_ids}")
