@@ -1,0 +1,39 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main  # Change this to your default branch if not 'main'
+
+env:
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  DOCKER_REPO: sqm
+  IMAGE_NAME: sqm
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Log in to Docker Hub
+      run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+    - name: Build Docker image
+      run: docker build . --file Dockerfile --tag $DOCKER_REPO/$IMAGE_NAME:latest
+
+    - name: Push Docker image to Docker Hub
+      run: docker push $DOCKER_REPO/$IMAGE_NAME:latest
+
+    - name: Get the current date and time
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
+
+    - name: Tag Docker image with date and time
+      run: docker tag $DOCKER_REPO/$IMAGE_NAME:latest $DOCKER_REPO/$IMAGE_NAME:${{ steps.date.outputs.date }}
+
+    - name: Push tagged Docker image to Docker Hub
+      run: docker push $DOCKER_REPO/$IMAGE_NAME:${{ steps.date.outputs.date }}
