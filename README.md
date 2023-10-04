@@ -1,7 +1,7 @@
 # Sonarr Queue Manager (SQM)
 
+[![GitHub](https://img.shields.io/badge/GitHub-SQM_Python-blue)](https://github.com/MrDKGE/SQM-Python)
 [![GitHub last commit](https://img.shields.io/github/last-commit/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python)
-[![GitHub contributors](https://img.shields.io/github/contributors/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python/graphs/contributors)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
 [![Docker Stars](https://img.shields.io/docker/stars/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
 [![Docker Image Size (tag)](https://img.shields.io/docker/image-size/dkge/sqm/latest)](https://hub.docker.com/r/dkge/sqm)
@@ -34,15 +34,6 @@ Conditions:
 - Downloading metadata
 - Title or status message contains "sample"
 
-## Getting Started
-
-Follow these instructions to get the project up and running on your local machine for testing and development purposes.
-
-### Prerequisites
-
-- Docker
-- Docker Compose (optional)
-
 ## Usage
 
 #### Docker Compose
@@ -70,7 +61,3 @@ Contributions are welcome! If you'd like to improve this project, please open an
 
 * Sonarr v4
 * qBittorrent v4.5.5
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
