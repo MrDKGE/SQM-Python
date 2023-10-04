@@ -1,5 +1,5 @@
-# Use Python 3.9 as a parent image
-FROM python:3.9-slim
+# Use Python 3.10 as a parent image
+FROM python:3.10-alpine
 
 # Set the working directory in the container to /app
 WORKDIR /app
