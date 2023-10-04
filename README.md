@@ -1,5 +1,12 @@
 # Sonarr Queue Manager (SQM)
 
+[![GitHub last commit](https://img.shields.io/github/last-commit/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python)
+[![GitHub contributors](https://img.shields.io/github/contributors/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python/graphs/contributors)
+[![Docker Pulls](https://img.shields.io/docker/pulls/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
+[![Docker Stars](https://img.shields.io/docker/stars/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
+[![Docker Image Size (tag)](https://img.shields.io/docker/image-size/dkge/sqm/latest)](https://hub.docker.com/r/dkge/sqm)
+[![Docker Image Version (latest by date)](https://img.shields.io/docker/v/dkge/sqm)](https://hub.docker.com/r/dkge/sqm)
+
 This is a simple script for managing the queue in Sonarr. You can use it to blacklist stalled downloads, and optionally redownload them.
 
 Why the short name SQM you ask? Well, maybe we can add Radarr support in the future.  
