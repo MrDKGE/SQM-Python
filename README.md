@@ -24,6 +24,16 @@ So the name becomes Servarr Queue Manager.
 | REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
 | LOG_LEVEL  | The log level                                  | INFO      | No       |
 
+## What does it do?
+
+The script will check the queue in Sonarr every x seconds (default 3600 seconds).
+If certain conditions are met, the script will blacklist the download and optionally redownload it.  
+Conditions:
+
+- Status is Stalled
+- Downloading metadata
+- Title or status message contains "sample"
+
 ## Getting Started
 
 Follow these instructions to get the project up and running on your local machine for testing and development purposes.
