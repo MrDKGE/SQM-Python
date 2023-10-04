@@ -3,7 +3,7 @@ version: '3'
 services:
   sonarr-script:
     container_name: SQM
-    build: .
+    image: dkge/sqm:latest
     environment:
       - HOST=xxxx:xxxx  # Sonarr Host and Port
       - API_KEY=xxxx  # Sonarr API Key
