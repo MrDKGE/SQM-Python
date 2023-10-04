@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "main"
+    paths:
+      - 'Dockerfile'
+      - 'script.py'
 
 jobs:
   build:
