@@ -37,5 +37,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/sqm:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/sqm:${{ steps.date.outputs.date }}-${{ steps.sha.outputs.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/sqm:latest
