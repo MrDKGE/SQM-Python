@@ -95,6 +95,9 @@ def main():
             else:
                 logging.error(f"Failed to blacklist record with ID {stalled_id}")
 
+        # skip sleep if env var is set to 0
+        if optional_vars['INTERVAL'] == 0:
+            break
         logging.info(f"Sleeping for {optional_vars['INTERVAL']} seconds.")
         time.sleep(optional_vars['INTERVAL'])
 
