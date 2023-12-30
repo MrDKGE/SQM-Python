@@ -57,10 +57,34 @@ def api_call(base_url, endpoint, headers, method='GET', params=None):
             return None
 
 
+def refresh_queue(base_url, headers):
+    url = f"{base_url}command"
+    payload = {"name": "RefreshMonitoredDownloads"}
+    try:
+        r = requests.post(url, headers=headers, json=payload)
+        r.raise_for_status()
+        response = r.json() if r.text else None
+        if response and (response.get('status') == 'started' or response.get('status') == 'queued'):
+            time.sleep(5)
+            logging.info("RefreshMonitoredDownloads command started successfully.")
+            return True
+        else:
+            logging.error("RefreshMonitoredDownloads command failed to start.")
+            return False
+    except requests.HTTPError:
+        error_message = r.json().get('message', 'Unknown error') if r.text else 'No additional information'
+        logging.error(f"API call failed with status code {r.status_code}. Error: {error_message}")
+        return False
+
+
 def main():
     required_vars, optional_vars = fetch_env_vars()
     base_url = f'{optional_vars["PROTOCOL"]}://{optional_vars["HOST"]}:{optional_vars["PORT"]}/api/v3/'
     headers = {'Content-Type': 'application/json', 'X-Api-Key': required_vars['API_KEY']}
+
+    if not refresh_queue(base_url, headers):
+        logging.error("Failed to refresh queue, exiting.")
+        exit(1)
 
     while True:
         queue_params = {'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True}
