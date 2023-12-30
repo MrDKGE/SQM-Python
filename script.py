@@ -82,44 +82,42 @@ def main():
     base_url = f'{optional_vars["PROTOCOL"]}://{optional_vars["HOST"]}:{optional_vars["PORT"]}/api/v3/'
     headers = {'Content-Type': 'application/json', 'X-Api-Key': required_vars['API_KEY']}
 
-    if not refresh_queue(base_url, headers):
-        logging.error("Failed to refresh queue, exiting.")
-        exit(1)
-
     while True:
-        queue_params = {'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True}
-        queue_info = api_call(base_url, 'queue', headers, params=queue_params)
+        logging.info("Refreshing monitored downloads...")
+        if not refresh_queue(base_url, headers):
+            logging.error("Failed to refresh monitored downloads.")
+        else:
+            queue_params = {'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True}
+            queue_info = api_call(base_url, 'queue', headers, params=queue_params)
 
-        if not queue_info:
-            continue
+            if queue_info:
+                total_items = queue_info['totalRecords']
+                logging.info(f'Total Items in Queue: {total_items}')
 
-        total_items = queue_info['totalRecords']
-        logging.info(f'Total Items in Queue: {total_items}')
+                queue_params['pageSize'] = total_items
+                records = api_call(base_url, 'queue', headers, params=queue_params)['records']
 
-        queue_params['pageSize'] = total_items
-        records = api_call(base_url, 'queue', headers, params=queue_params)['records'] if queue_info else []
+                stalled_ids = [
+                    record['id'] for record in records
+                    if 'errorMessage' in record and (
+                            'The download is stalled with no connections' in record['errorMessage'] or
+                            'is downloading metadata' in record['errorMessage']
+                    ) or any(
+                        'Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', []))
+                        for message in record.get('statusMessages', [])
+                    )
+                ]
 
-        stalled_ids = [
-            record['id'] for record in records
-            if 'errorMessage' in record and (
-                    'The download is stalled with no connections' in record['errorMessage'] or
-                    'is downloading metadata' in record['errorMessage']
-            ) or any(
-                'Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', []))
-                for message in record.get('statusMessages', [])
-            )
-        ]
+                logging.info(f"IDs of Stalled Records: {stalled_ids}")
 
-        logging.info(f"IDs of Stalled Records: {stalled_ids}")
+                for stalled_id in stalled_ids:
+                    params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['SKIP_REDOWNLOAD']}
+                    if api_call(base_url, f"queue/{stalled_id}", headers, method='DELETE', params=params):
+                        logging.info(f"Successfully blacklisted record with ID {stalled_id}")
+                    else:
+                        logging.error(f"Failed to blacklist record with ID {stalled_id}")
 
-        for stalled_id in stalled_ids:
-            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['SKIP_REDOWNLOAD']}
-            if api_call(base_url, f"queue/{stalled_id}", headers, method='DELETE', params=params):
-                logging.info(f"Successfully blacklisted record with ID {stalled_id}")
-            else:
-                logging.error(f"Failed to blacklist record with ID {stalled_id}")
-
-        # skip sleep if env var is set to 0
+        # Sleep handling at the end
         if optional_vars['INTERVAL'] == 0:
             break
         logging.info(f"Sleeping for {optional_vars['INTERVAL']} seconds.")
