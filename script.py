@@ -3,125 +3,116 @@ import time
 import requests
 import logging
 
-# Constants
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = "8989"
-DEFAULT_INTERVAL = 3600
-LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+# Constants for defaults
+DEFAULTS = {
+    "HOST": "127.0.0.1",
+    "PORT": "8989",
+    "PROTOCOL": "http",
+    "INTERVAL": 3600,
+    "LOG_LEVEL": "INFO",
+    "SKIP_REDOWNLOAD": False
+}
 
-# Initialize logging
-logging.basicConfig(level=LOG_LEVEL, format='%(levelname)s - %(message)s')
 
-
-# Fetch and log environment variables
+# Function to fetch and validate environment variables
 def fetch_env_vars():
-    required_vars = {
-        "API_KEY": os.getenv('API_KEY')
-    }
-    optional_vars = {
-        "HOST": os.getenv('HOST', DEFAULT_HOST),
-        "PORT": os.getenv('PORT', DEFAULT_PORT),
-        "PROTOCOL": os.getenv('PROTOCOL', 'http'),
-        "INTERVAL": int(os.getenv('INTERVAL', DEFAULT_INTERVAL)),
-        "SKIP_REDOWNLOAD": os.getenv('SKIP_REDOWNLOAD', 'False').lower() == 'true'
-    }
-
-    if not all(required_vars.values()):
-        logging.error("Missing required environment variables. Exiting.")
+    api_key = os.getenv('API_KEY')
+    if not api_key:
+        logging.error("Missing required environment variable API_KEY. Exiting.")
         exit(1)
 
-    logging.info(f"Starting script with the following environment variables:")
+    env_vars = {
+        "API_KEY": api_key,
+        "HOST": os.getenv('HOST', DEFAULTS["HOST"]),
+        "PORT": os.getenv('PORT', DEFAULTS["PORT"]),
+        "PROTOCOL": os.getenv('PROTOCOL', DEFAULTS["PROTOCOL"]),
+        "INTERVAL": int(os.getenv('INTERVAL', DEFAULTS["INTERVAL"])),
+        "SKIP_REDOWNLOAD": os.getenv('SKIP_REDOWNLOAD', 'false').lower() == 'true',
+    }
 
-    masked_api_key = 'x' * (len(required_vars['API_KEY']) - 6) + required_vars['API_KEY'][-6:]
-    logging.info(f"API_KEY: {masked_api_key}")
+    # Initialize logging
+    logging.basicConfig(level=os.getenv('LOG_LEVEL', DEFAULTS["LOG_LEVEL"]).upper(), format='%(levelname)s - %(message)s')
 
-    for var, value in optional_vars.items():
-        logging.info(f"{var}: {value}")
+    # Initialize session headers
+    session.headers.update({'Content-Type': 'application/json', 'X-Api-Key': env_vars["API_KEY"]})
 
-    return required_vars, optional_vars
+    logging.info("Environment variables loaded successfully")
+    return env_vars
 
 
-def api_call(base_url, endpoint, headers, method='GET', params=None):
+# Initialize a Session
+session = requests.Session()
+
+
+# API call function
+def api_call(base_url, endpoint, method='GET', params=None, payload=None):
     url = f"{base_url}{endpoint}"
     try:
-        r = getattr(requests, method.lower())(url, headers=headers, params=params)
-        r.raise_for_status()
-        if method == 'DELETE':
-            return True if r.status_code == 200 else None
-        else:
-            return r.json() if r.text else None
-    except requests.HTTPError:
-        error_message = r.json().get('message', 'Unknown error') if r.text else 'No additional information'
-        logging.error(f"API call failed with status code {r.status_code}. Error: {error_message}")
-        if r.status_code == 404:
-            return None
+        response = session.request(method, url, params=params, json=payload)
+        response.raise_for_status()
+        return response.json() if response.text else None
+    except requests.RequestException as e:
+        logging.error(f"API call failed. Error: {e}")
+        return None
 
 
-def refresh_queue(base_url, headers):
-    url = f"{base_url}command"
+# Function to refresh queue
+def refresh_queue(base_url):
     payload = {"name": "RefreshMonitoredDownloads"}
-    try:
-        r = requests.post(url, headers=headers, json=payload)
-        r.raise_for_status()
-        response = r.json() if r.text else None
-        if response and (response.get('status') == 'started' or response.get('status') == 'queued'):
-            time.sleep(5)
-            logging.info("RefreshMonitoredDownloads command started successfully.")
-            return True
-        else:
-            logging.error("RefreshMonitoredDownloads command failed to start.")
-            return False
-    except requests.HTTPError:
-        error_message = r.json().get('message', 'Unknown error') if r.text else 'No additional information'
-        logging.error(f"API call failed with status code {r.status_code}. Error: {error_message}")
-        return False
+    response = api_call(base_url, "command", method='POST', payload=payload)
+    if response and response.get('status') in ['started', 'queued']:
+        logging.info("RefreshMonitoredDownloads command started successfully.")
+        time.sleep(5)  # Allow command to start
+        return True
+    logging.error("RefreshMonitoredDownloads command failed to start.")
+    return False
 
 
+# Function to get stalled IDs
+def get_stalled_ids(records):
+    return [record['id'] for record in records if any(condition(record) for condition in [is_stalled, has_sample_message])]
+
+
+# Check if record is stalled
+def is_stalled(record):
+    return 'errorMessage' in record and ('The download is stalled with no connections' in record['errorMessage'] or 'is downloading metadata' in record['errorMessage'])
+
+
+# Check if record has a sample message
+def has_sample_message(record):
+    return any('Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', [])) for message in record.get('statusMessages', []))
+
+
+# Process queue
+def process_queue(base_url, skip_redownload):
+    queue_info = api_call(base_url, 'queue', params={'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True})
+    if queue_info:
+        records = queue_info.get('records', [])
+        stalled_ids = get_stalled_ids(records)
+        if stalled_ids:
+            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': skip_redownload, 'changeCategory': False}
+            if api_call(base_url, 'queue/bulk', method='DELETE', params=params, payload={"ids": stalled_ids}):
+                logging.info(f"Successfully blacklisted {len(stalled_ids)} stalled records.")
+            else:
+                logging.error("Failed to blacklist stalled records.")
+
+
+# Main function
 def main():
-    required_vars, optional_vars = fetch_env_vars()
-    base_url = f'{optional_vars["PROTOCOL"]}://{optional_vars["HOST"]}:{optional_vars["PORT"]}/api/v3/'
-    headers = {'Content-Type': 'application/json', 'X-Api-Key': required_vars['API_KEY']}
+    env_vars = fetch_env_vars()
+    base_url = f'{env_vars["PROTOCOL"]}://{env_vars["HOST"]}:{env_vars["PORT"]}/api/v3/'
 
     while True:
         logging.info("Refreshing monitored downloads...")
-        if not refresh_queue(base_url, headers):
-            logging.error("Failed to refresh monitored downloads.")
+        if refresh_queue(base_url):
+            process_queue(base_url, env_vars['SKIP_REDOWNLOAD'])
         else:
-            queue_params = {'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True}
-            queue_info = api_call(base_url, 'queue', headers, params=queue_params)
+            logging.error("Failed to refresh monitored downloads.")
 
-            if queue_info:
-                total_items = queue_info['totalRecords']
-                logging.info(f'Total Items in Queue: {total_items}')
-
-                queue_params['pageSize'] = total_items
-                records = api_call(base_url, 'queue', headers, params=queue_params)['records']
-
-                stalled_ids = [
-                    record['id'] for record in records
-                    if 'errorMessage' in record and (
-                            'The download is stalled with no connections' in record['errorMessage'] or
-                            'is downloading metadata' in record['errorMessage']
-                    ) or any(
-                        'Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', []))
-                        for message in record.get('statusMessages', [])
-                    )
-                ]
-
-                logging.info(f"IDs of Stalled Records: {stalled_ids}")
-
-                for stalled_id in stalled_ids:
-                    params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': optional_vars['SKIP_REDOWNLOAD']}
-                    if api_call(base_url, f"queue/{stalled_id}", headers, method='DELETE', params=params):
-                        logging.info(f"Successfully blacklisted record with ID {stalled_id}")
-                    else:
-                        logging.error(f"Failed to blacklist record with ID {stalled_id}")
-
-        # Sleep handling at the end
-        if optional_vars['INTERVAL'] == 0:
+        if env_vars['INTERVAL'] == 0:
             break
-        logging.info(f"Sleeping for {optional_vars['INTERVAL']} seconds.")
-        time.sleep(optional_vars['INTERVAL'])
+        logging.info(f"Sleeping for {env_vars['INTERVAL']} seconds.")
+        time.sleep(env_vars['INTERVAL'])
 
 
 if __name__ == "__main__":
