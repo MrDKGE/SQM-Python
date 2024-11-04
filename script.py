@@ -10,7 +10,8 @@ DEFAULTS = {
     "PROTOCOL": "http",
     "INTERVAL": 3600,
     "LOG_LEVEL": "INFO",
-    "SKIP_REDOWNLOAD": False
+    "SKIP_REDOWNLOAD": False,
+    "DRY_RUN": False  # Added DRY_RUN with default value False
 }
 
 
@@ -28,6 +29,7 @@ def fetch_env_vars():
         "PROTOCOL": os.getenv('PROTOCOL', DEFAULTS["PROTOCOL"]),
         "INTERVAL": int(os.getenv('INTERVAL', DEFAULTS["INTERVAL"])),
         "SKIP_REDOWNLOAD": os.getenv('SKIP_REDOWNLOAD', 'false').lower() == 'true',
+        "DRY_RUN": os.getenv('DRY_RUN', 'false').lower() == 'true',  # Fetch DRY_RUN from environment variables
     }
 
     # Initialize logging
@@ -84,17 +86,20 @@ def has_sample_message(record):
 
 
 # Process queue
-def process_queue(base_url, skip_redownload):
+def process_queue(base_url, skip_redownload, dry_run):
     queue_info = api_call(base_url, 'queue', params={'page': 1, 'pageSize': 250, 'includeUnknownSeriesItems': True})
     if queue_info:
         records = queue_info.get('records', [])
         stalled_ids = get_stalled_ids(records)
         if stalled_ids:
-            params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': skip_redownload, 'changeCategory': False}
-            if api_call(base_url, 'queue/bulk', method='DELETE', params=params, payload={"ids": stalled_ids}):
-                logging.info(f"Successfully blacklisted {len(stalled_ids)} stalled records.")
+            if dry_run:
+                logging.info(f"[DRY RUN] Would have blacklisted {len(stalled_ids)} stalled records: {stalled_ids}")
             else:
-                logging.error("Failed to blacklist stalled records.")
+                params = {'removeFromClient': True, 'blocklist': True, 'skipRedownload': skip_redownload, 'changeCategory': False}
+                if api_call(base_url, 'queue/bulk', method='DELETE', params=params, payload={"ids": stalled_ids}):
+                    logging.info(f"Successfully blacklisted {len(stalled_ids)} stalled records.")
+                else:
+                    logging.error("Failed to blacklist stalled records.")
 
 
 # Main function
@@ -105,7 +110,7 @@ def main():
     while True:
         logging.info("Refreshing monitored downloads...")
         if refresh_queue(base_url):
-            process_queue(base_url, env_vars['SKIP_REDOWNLOAD'])
+            process_queue(base_url, env_vars['SKIP_REDOWNLOAD'], env_vars['DRY_RUN'])
         else:
             logging.error("Failed to refresh monitored downloads.")
 

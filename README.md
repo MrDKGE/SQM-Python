@@ -20,6 +20,7 @@ This is a simple script for managing the queue in Sonarr or Radarr. You can use 
 | INTERVAL        | The interval in seconds between each check     | 3600      | No       |
 | SKIP_REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
 | LOG_LEVEL       | The log level                                  | INFO      | No       |
+| DRY_RUN         | Check all functions without changes            | false     | No       |
 
 ## What does it do?
 
