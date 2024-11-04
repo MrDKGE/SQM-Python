@@ -1,7 +1,8 @@
+import logging
 import os
 import time
+
 import requests
-import logging
 
 # Constants for defaults
 DEFAULTS = {
@@ -72,7 +73,7 @@ def refresh_queue(base_url):
 
 # Function to get stalled IDs
 def get_stalled_ids(records):
-    return [record['id'] for record in records if any(condition(record) for condition in [is_stalled, has_sample_message])]
+    return [record['id'] for record in records if any(condition(record) for condition in [is_stalled, has_sample_message, has_no_files_found_message])]
 
 
 # Check if record is stalled
@@ -83,6 +84,11 @@ def is_stalled(record):
 # Check if record has a sample message
 def has_sample_message(record):
     return any('Sample' in message.get('title', '') or 'Sample' in ' '.join(message.get('messages', [])) for message in record.get('statusMessages', []))
+
+
+# Check if record has "No files found are eligible for import in" message
+def has_no_files_found_message(record):
+    return any('No files found are eligible for import in' in message.get('title', '') or 'No files found are eligible for import in' in ' '.join(message.get('messages', [])) for message in record.get('statusMessages', []))
 
 
 # Process queue
