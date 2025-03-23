@@ -1,83 +1,138 @@
 # Servarr Queue Manager (SQM)
 
-[![GitHub](https://img.shields.io/badge/GitHub-SQM_Python-blue)](https://github.com/MrDKGE/SQM-Python)
-[![GitHub last commit](https://img.shields.io/github/last-commit/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python)
-[![Docker Pulls](https://img.shields.io/docker/pulls/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
-[![Docker Stars](https://img.shields.io/docker/stars/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)
-[![Docker Image Size (tag)](https://img.shields.io/docker/image-size/dkge/sqm/latest)](https://hub.docker.com/r/dkge/sqm)
+[![GitHub](https://img.shields.io/badge/GitHub-SQM_Python-blue)](https://github.com/MrDKGE/SQM-Python)  
+[![GitHub last commit](https://img.shields.io/github/last-commit/MrDKGE/SQM-Python)](https://github.com/MrDKGE/SQM-Python)  
+[![Docker Pulls](https://img.shields.io/docker/pulls/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)  
+[![Docker Stars](https://img.shields.io/docker/stars/dkge/sqm.svg)](https://hub.docker.com/r/dkge/sqm)  
+[![Docker Image Size (tag)](https://img.shields.io/docker/image-size/dkge/sqm/latest)](https://hub.docker.com/r/dkge/sqm)  
 [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/dkge/sqm)](https://hub.docker.com/r/dkge/sqm)
 
-This is a simple script for managing the queue in Sonarr or Radarr. You can use it to blacklist stalled downloads, and optionally redownload them.
+SQM is a lightweight Python tool designed to manage the download queues in Sonarr or Radarr. It monitors your queue at regular intervals, identifies stalled downloads based on certain conditions, and automatically blacklists them (with an option to skip redownload). This tool is built with robust logging and error handling, making it ideal for both testing and production use.
 
-## Environment Variables
+---
 
-| Variable        | Description                                    | Default   | Required |
-|:----------------|:-----------------------------------------------|:----------|:---------|
-| HOST            | The IP address of the Sonarr/Radarr host       | 127.0.0.1 | No       |
-| PORT            | The port of the Sonarr/Radarr host             | 8989      | No       |
-| PROTOCOL        | The protocol of the Sonarr/Radarr host         | http      | No       |
-| API_KEY         | The API key of the Sonarr/Radarr host          |           | Yes      |
-| INTERVAL        | The interval in seconds between each check     | 3600      | No       |
-| SKIP_REDOWNLOAD | Whether or not to redownload stalled downloads | False     | No       |
-| LOG_LEVEL       | The log level                                  | INFO      | No       |
-| DRY_RUN         | Check all functions without changes            | false     | No       |
+## Configuration
 
-## What does it do?
+SQM uses a `config.json` file for its configuration. Place this file in the container’s working directory. **Please ensure your configuration file follows the order below:**
 
-The script will check the queue in Sonarr/Radarr every x seconds (default 3600 seconds).
-If certain conditions are met, the script will blacklist the download and optionally redownload it.  
-Conditions:
-
-- Status is Stalled
-- Downloading metadata
-- Title or status message contains "sample"
-
-## Usage
-Note: You will have to replace the environment variables with your own values.
-
-#### Docker
-
-Run the following command to start the container:
-
+```json
+{
+  "interval": 3600,
+  "dry_run": true,
+  "log_level": "INFO",
+  "stalled_policy": "immediate",
+  "servers": [
+    {
+      "name": "Sonarr",
+      "host": "192.168.1.x",
+      "port": "18989",
+      "protocol": "http",
+      "api_key": "change_me",
+      "skip_redownload": false
+    },
+    {
+      "name": "Radarr",
+      "host": "192.168.1.x",
+      "port": "17878",
+      "protocol": "http",
+      "api_key": "change_me",
+      "skip_redownload": false
+    }
+  ]
+}
 ```
-docker run -e HOST=192.168.X.X -e API_KEY=your-api-key -d --name sqm dkge/sqm:latest
-```
 
-#### Docker Compose
+### Configuration Details
 
-In the example below, SQM will check both Sonarr and Radarr every 3 hours.
+- **Global Settings:**
+  - `interval`: Number of seconds between queue checks (set to `0` or a negative value to run a single iteration).
+  - `dry_run`: When `true`, SQM simulates actions without making changes.
+  - `log_level`: Determines the verbosity of logging (e.g., `INFO`, `DEBUG`).
+  - `servers`: An array containing the configuration for each server.\
+  - `stalled_policy`: New option to control stalled download removal behavior. Set to:
+    - `immediate`: Removes stalled downloads as soon as they are detected.
+    - `delayed`: Waits until a download is detected as stalled in two consecutive scans before removing it.
+
+- **Per-Server Settings:**
+  - `name`: A friendly name for the server (e.g., "Sonarr" or "Radarr").
+  - `host`: The IP address of the server.
+  - `port`: The server’s port (provided as a string).
+  - `protocol`: The protocol to use (`http` or `https`).
+  - `api_key`: Your API key for accessing the server’s API.
+  - `skip_redownload`: When `true`, prevents redownload after blacklisting stalled downloads.
+
+---
+
+## What It Does
+
+SQM continuously monitors your Sonarr/Radarr download queues. It checks for downloads that:
+- Are stalled,
+- Are "downloading metadata," or
+- Contain messages indicating a sample file.
+
+When such downloads are detected, SQM will blacklist them and, depending on your configuration, may skip their redownload.
+
+---
+
+## Docker Usage
+
+Docker is the primary method for running SQM. Follow these instructions to get started:
+
+### Running with Docker
+
+1. **Prepare Your Config File:**  
+   Create your `config.json` file (as shown above) on your host system.
+
+2. **Run the Container:**  
+   Mount your configuration file into the container:
+   ```bash
+   docker run -v /path/to/your/config.json:/app/config.json -d --name sqm dkge/sqm:latest
+   ```
+
+### Docker Compose Example
+
+For those using Docker Compose, here is an example `docker-compose.yml` that runs SQM for multiple servers (e.g., Sonarr and Radarr):
+
 ```yaml
 version: '3'
 
 services:
-  sqm-1:
-    container_name: SQM-Sonarr
+  sqm:
+    container_name: SQM
     image: dkge/sqm:latest
-    environment:
-      - HOST=192.168.XX.XX
-      - PORT=8989
-      - API_KEY=XXXX
-      - INTERVAL=10800
-    restart: always
-
-  sqm-2:
-    container_name: SQM-Radarr
-    image: dkge/sqm:latest
-    environment:
-      - HOST=192.168.XX.XX
-      - PORT=7878
-      - API_KEY=XXXX
-      - INTERVAL=10800
+    volumes:
+      - /path/to/your/config.json:/app/config.json
+      - /etc/localtime:/etc/localtime:ro
     restart: always
 ```
 
+*Note:* Replace `/path/to/your/…` with the actual paths to your configuration file(s) on your host system.
+
+---
+
+## Running Locally
+
+If you prefer to run SQM without Docker:
+1. Ensure the `config.json` file is in the same directory as the script.
+2. Execute the script with Python:
+   ```bash
+   python sqm.py
+   ```
+
+---
 
 ## Contributing
 
-Contributions are welcome! If you'd like to improve this project, please open an issue to discuss a proposed change.
+Contributions are welcome! If you have suggestions or improvements, please open an issue or submit a pull request on our [GitHub repository](https://github.com/MrDKGE/SQM-Python).
+
+---
 
 ## Tested On
 
-* Sonarr v4.0.1.1047
-* Radarr v5.3.4.8567
-* qBittorrent v4.5.5
+- Sonarr v4.0.1.1047
+- Radarr v5.3.4.8567
+- qBittorrent v4.5.5
+
+---
+
+Explore SQM, configure it for your needs, and enjoy automated queue management for your media servers!

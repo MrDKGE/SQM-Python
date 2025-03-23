@@ -1,0 +1,24 @@
+{
+  "interval": 3600,
+  "dry_run": true,
+  "log_level": "INFO",
+  "stalled_policy": "delayed",
+  "servers": [
+    {
+      "name": "Sonarr",
+      "host": "192.168.1.x",
+      "port": "18989",
+      "protocol": "http",
+      "api_key": "change_me",
+      "skip_redownload": false
+    },
+    {
+      "name": "Radarr",
+      "host": "192.168.1.x",
+      "port": "17878",
+      "protocol": "http",
+      "api_key": "change_me",
+      "skip_redownload": false
+    }
+  ]
+}
