@@ -11,4 +11,4 @@ COPY . /app
 RUN pip install --no-cache-dir requests
 
 # Run script.py when the container launches
-CMD ["python", "script.py"]
+CMD ["python", "-u", "script.py"]
