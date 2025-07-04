@@ -1,0 +1,9 @@
+services:
+  sqm:
+    container_name: SQM
+    # image: dkge/sqm:latest
+    build: .
+    volumes:
+      - ./config.json:/app/config.json
+      # - /etc/localtime:/etc/localtime:ro
+    restart: always

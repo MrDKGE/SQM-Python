@@ -34,6 +34,12 @@ STALLED_STATUS_PATTERNS = [
     "No files found are eligible for import in"
 ]
 
+# Patterns for detecting dangerous file extensions that should be blacklisted.
+# These patterns help identify torrents with potentially malicious file types.
+DANGEROUS_FILE_PATTERNS = [
+    "Found potentially dangerous file with extension:"
+]
+
 # File to persist stalled downloads when using delayed removal.
 STALLED_DOWNLOADS_FILE = 'stalled_downloads.json'
 
@@ -168,11 +174,41 @@ def refresh_queue(base_url, api_key):
     return False
 
 
+def is_download_dangerous(record):
+    """Check if a download contains dangerous file extensions."""
+    error_message = record.get('errorMessage', '')
+    
+    # Check error message for dangerous file patterns
+    for pattern in DANGEROUS_FILE_PATTERNS:
+        if pattern in error_message:
+            return True
+    
+    # Check status messages for dangerous file patterns
+    for msg in record.get('statusMessages', []):
+        for pattern in DANGEROUS_FILE_PATTERNS:
+            if pattern in msg.get('title', ''):
+                return True
+            for sub_msg in msg.get('messages', []):
+                if pattern in str(sub_msg):
+                    return True
+    
+    return False
+
+
 def is_download_stalled(record):
     error_message = record.get('errorMessage', '')
+    
+    # Check for stalled download patterns
     for pattern in STALLED_ERROR_PATTERNS:
         if pattern in error_message:
             return True
+    
+    # Check for dangerous file extension patterns
+    for pattern in DANGEROUS_FILE_PATTERNS:
+        if pattern in error_message:
+            return True
+    
+    # Check status messages for stalled patterns
     for msg in record.get('statusMessages', []):
         for pattern in STALLED_STATUS_PATTERNS:
             if pattern in msg.get('title', ''):
@@ -180,6 +216,15 @@ def is_download_stalled(record):
             for sub_msg in msg.get('messages', []):
                 if pattern in str(sub_msg):
                     return True
+        
+        # Check status messages for dangerous file patterns
+        for pattern in DANGEROUS_FILE_PATTERNS:
+            if pattern in msg.get('title', ''):
+                return True
+            for sub_msg in msg.get('messages', []):
+                if pattern in str(sub_msg):
+                    return True
+    
     return False
 
 
@@ -192,17 +237,36 @@ def get_stalled_ids(records):
             download_groups[download_id].append(record)
         else:
             no_download_id_records.append(record)
+    
     stalled_ids = []
+    dangerous_ids = []
+    
     for download_id, group in download_groups.items():
         for record in group:
             if is_download_stalled(record):
                 if len(group) > 1:
                     print_info(f"Season pack detected with {len(group)} episodes. Using episode ID: {record['id']}")
+                
+                # Check if this is due to dangerous file detection
+                if is_download_dangerous(record):
+                    dangerous_ids.append(record['id'])
+                    print_info(f"Dangerous file detected in download ID {record['id']}: {record.get('title', 'Unknown')}")
+                
                 stalled_ids.append(record['id'])
                 break
+    
     for record in no_download_id_records:
         if is_download_stalled(record):
+            # Check if this is due to dangerous file detection
+            if is_download_dangerous(record):
+                dangerous_ids.append(record['id'])
+                print_info(f"Dangerous file detected in download ID {record['id']}: {record.get('title', 'Unknown')}")
+            
             stalled_ids.append(record['id'])
+    
+    if dangerous_ids:
+        print_block(f"Detected {len(dangerous_ids)} download(s) with potentially dangerous file extensions that will be blacklisted.")
+    
     return stalled_ids
 
 
